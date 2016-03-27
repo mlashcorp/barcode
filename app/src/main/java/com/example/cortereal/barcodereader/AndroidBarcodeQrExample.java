@@ -15,6 +15,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.UUID;
@@ -25,7 +27,7 @@ public class AndroidBarcodeQrExample extends Activity {
 
     static final String ACTION_SCAN = "com.google.zxing.client.android.SCAN";
     private static final UUID MY_UUID = UUID.fromString("94f39d29-7d6d-437d-973b-fba39e49d4ee");
-
+    public final static String EXTRA_MESSAGE = "com.example.cortereal.barcodereader.MESSAGE";
 
     // Insert your server's MAC address
     private static String address = "00:1A:7D:DA:71:04";
@@ -65,27 +67,56 @@ public class AndroidBarcodeQrExample extends Activity {
             // Discovery is resource intensive.  Make sure it isn't going on
             // when you attempt to connect and pass your message.
             btAdapter.cancelDiscovery();
+            Boolean connection_ok = false;
+            String connection_label = "Connection failed";
             Log.d("spinit-cloud", "4");
             // Establish the connection.  This will block until it connects.
             try {
                 btSocket.connect();
-                Log.d("cloud-debug","\n...Connection established and data link opened...");
-            } catch (IOException e) {
+                connection_ok = true;
+                connection_label = "Connection OK";
+                Log.d("spinit-cloud","Connection established and data link opened...");
+            } catch (Exception e) {
                 try {
                     btSocket.close();
-                } catch (IOException e2) {
-                    Log.d("Fatal Error", "In onResume() and unable to close socket during connection failure" + e2.getMessage() + ".");
+                } catch (Exception e2) {
+                    Log.d("spinit-cloud", "In onResume() and unable to close socket during connection failure" + e2.getMessage() + ".");
                 }
             }
             Log.d("spinit-cloud","5");
             // Create a data stream so we can talk to server.
-            Log.d("cloud-debug","\n...Sending message to server...");
+            Log.d("spinit-cloud","Sending message to server...");
+
 
             try {
                 outStream = btSocket.getOutputStream();
-            } catch (IOException e) {
-                Log.d("Fatal Error", "In onResume() and output stream creation failed:" + e.getMessage() + ".");
+
+            } catch (Exception e) {
+                Log.d("spinit-cloud", "In onResume() and output stream creation failed:");
             }
+            this.update_ui(connection_label, connection_ok);
+        }
+
+        private void update_ui(final String connection_label,final Boolean connection_status){
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView label = (TextView) findViewById(R.id.textView2);
+                    ImageView img= (ImageView) findViewById(R.id.spinit_icon_image);
+                    Button myButton = (Button) findViewById(R.id.button);
+
+                    label.setText(connection_label);
+                    if (connection_status) {
+                        img.setImageResource(R.drawable.green);
+                        myButton.setAlpha(1.0f);
+                        myButton.setEnabled(true);
+                    }
+                    else
+                        img.setImageResource(R.drawable.red);
+                    //stuff that updates ui
+
+                }
+            });
         }
         public void run() {
             establishConnection();
@@ -103,17 +134,10 @@ public class AndroidBarcodeQrExample extends Activity {
         }
 
         private void sendBTData(String payload) {
-            if (btSocket == null || !btSocket.isConnected()){
-                Log.d("spinit-cloud", "no socket connected - establishing connection");
-                mConnectThread = new ConnectThread();
-                mConnectThread.start();
 
-                //establishConnection();
-            }
 
             byte[] msgBuffer = payload.getBytes();
             try {
-                mConnectThread.join();
                 outStream.write(msgBuffer);
             } catch (Exception e) {
                 String msg = "In sendBTData and an exception occurred during write: " + e.getMessage();
@@ -142,6 +166,16 @@ public class AndroidBarcodeQrExample extends Activity {
         setContentView(R.layout.activity_main);
         btAdapter = BluetoothAdapter.getDefaultAdapter();
         CheckBTState();
+        Button myButton = (Button) findViewById(R.id.button);
+        myButton.setAlpha(0.5f);
+        myButton.setEnabled(false);
+        ImageView img= (ImageView) findViewById(R.id.spinit_icon_image);
+        img.setImageResource(R.drawable.orange);
+        if (btSocket == null || !btSocket.isConnected()){
+            Log.d("spinit-cloud", "no socket connected - establishing connection");
+            mConnectThread = new ConnectThread();
+            mConnectThread.start();
+        }
     }
 
 
@@ -236,10 +270,12 @@ public class AndroidBarcodeQrExample extends Activity {
                 String format = intent.getStringExtra("SCAN_RESULT_FORMAT");
                 //Toast toast = Toast.makeText(this, "Content:" + contents + " Format:" + format, Toast.LENGTH_LONG);
                 //toast.show();
-                mTransmitThread = new TransmitThread(contents);
-                mTransmitThread.start();
+                //mTransmitThread = new TransmitThread(contents);
+                //mTransmitThread.start();
 
-
+                Intent running_assay_intent = new Intent(this, RunAssayActivity.class);
+                running_assay_intent.putExtra(EXTRA_MESSAGE, contents);
+                startActivity(running_assay_intent);
             }
         }
     }
